@@ -55,7 +55,7 @@ def run(x: torch.Tensor,
         num_generations: int = 1,
         rand_seed: int = 0,
         verbose: bool = False,
-        **kwargs) -> list:
+        **kwargs) -> tuple:
     assert isinstance(x, torch.Tensor)
     assert isinstance(y, torch.Tensor)
     assert isinstance(list_sample_by_label, list)
@@ -158,7 +158,7 @@ def run(x: torch.Tensor,
     if selection_method == "roulette":
         toolbox.register(alias="select", function=tools.selRoulette)
     elif selection_method == "tournament":
-        toolbox.register(alias="select", function=tools.selTournament)
+        toolbox.register(alias="select", function=tools.selTournament, tournsize=population_size)
     elif selection_method == "worst":
         toolbox.register(alias="select", function=tools.selWorst)
     elif selection_method == "best":
@@ -270,11 +270,12 @@ def run(x: torch.Tensor,
         if verbose:
             print(logbook.stream)
 
-    result: list = list()
+    list_individual: list = list()
     for individual in population:
-        temp: dict = dict()
-        temp["chromosome"] = individual.tolist()
-        temp["fitness"] = individual.fitness.values
-        result.append(temp)
+        temp: dict = {
+            "chromosome": individual.tolist(),
+            "fitness": individual.fitness.values
+        }
+        list_individual.append(temp)
 
-    return result
+    return list_individual, logbook
