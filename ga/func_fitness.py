@@ -1,5 +1,6 @@
 """Module containing the fitness function."""
 from collections import Counter
+from typing import Tuple
 
 import numpy as np
 import torch
@@ -14,7 +15,7 @@ def calculate_f1_score(individual: np.ndarray,
                        y: torch.Tensor,
                        list_sample_by_label: list,
                        rand_seed: int = 0,
-                       **kwargs) -> tuple:
+                       **kwargs) -> Tuple[float, ...]:
     """
     Function to calculate fitness.
 
@@ -28,7 +29,7 @@ def calculate_f1_score(individual: np.ndarray,
 
     Returns
     -------
-    tuple
+    Tuple[float, ...]
 
     """
     assert isinstance(individual, np.ndarray)
@@ -37,40 +38,41 @@ def calculate_f1_score(individual: np.ndarray,
     assert isinstance(list_sample_by_label, list)
     assert isinstance(rand_seed, int) and (rand_seed >= 0)
 
-    num_hidden_layers: int = 1
-    if "num_hidden_layers" in kwargs:
-        assert isinstance(kwargs["num_hidden_layers"], int) and (kwargs["num_hidden_layers"] > 0)
-        num_hidden_layers = kwargs["num_hidden_layers"]
-
-    # Parameters for Adam optimizer.
-    learning_rate: float = 0.001
-    if "learning_rate" in kwargs:
-        assert isinstance(kwargs["learning_rate"], float) and (kwargs["learning_rate"] > 0.0)
-        learning_rate = kwargs["learning_rate"]
-    beta_1: float = 0.9
-    if "beta_1" in kwargs:
-        assert isinstance(kwargs["beta_1"], float) and (0.0 <= kwargs["beta_1"] < 1.0)
-        beta_1 = kwargs["beta_1"]
-    beta_2: float = 0.999
-    if "beta_2" in kwargs:
-        assert isinstance(kwargs["beta_2"], float) and (0.0 <= kwargs["beta_2"] < 1.0)
-        beta_2 = kwargs["beta_2"]
+    classifier_num_hidden_layers: int = 1
+    if "classifier_num_hidden_layers" in kwargs:
+        assert isinstance(kwargs["classifier_num_hidden_layers"], int) and (kwargs["classifier_num_hidden_layers"] > 0)
+        classifier_num_hidden_layers = kwargs["classifier_num_hidden_layers"]
 
     # Parameters for training.
-    batch_size: int = 1024
-    if "batch_size" in kwargs:
-        assert isinstance(kwargs["batch_size"], int) and (kwargs["batch_size"] > 0)
-        batch_size = kwargs["batch_size"]
-    num_epochs: int = 10
-    if "num_epochs" in kwargs:
-        assert isinstance(kwargs["num_epochs"], int) and (kwargs["num_epochs"] > 0)
-        num_epochs = kwargs["num_epochs"]
+    classifier_batch_size: int = 16
+    if "classifier_batch_size" in kwargs:
+        assert isinstance(kwargs["classifier_batch_size"], int) and (kwargs["classifier_batch_size"] > 0)
+        classifier_batch_size = kwargs["classifier_batch_size"]
+    classifier_num_epochs: int = 2
+    if "classifier_num_epochs" in kwargs:
+        assert isinstance(kwargs["classifier_num_epochs"], int) and (kwargs["classifier_num_epochs"] > 0)
+        classifier_num_epochs = kwargs["classifier_num_epochs"]
 
     # Check the running device for PyTorch.
-    run_device: str = "cpu"
-    if "run_device" in kwargs:
-        assert isinstance(kwargs["run_device"], str) and (str(kwargs["run_device"]).lower() in ["cpu", "cuda"])
-        run_device = str(kwargs["run_device"]).lower()
+    classifier_run_device: str = "cpu"
+    if "classifier_run_device" in kwargs:
+        assert isinstance(kwargs["classifier_run_device"], str)
+        assert str(kwargs["classifier_run_device"]).lower() in ["cpu", "cuda"]
+        classifier_run_device = str(kwargs["classifier_run_device"]).lower()
+
+    # Parameters for Adam optimizer.
+    classifier_learning_rate: float = 0.001
+    if "classifier_learning_rate" in kwargs:
+        assert isinstance(kwargs["classifier_learning_rate"], float) and (kwargs["classifier_learning_rate"] > 0.0)
+        classifier_learning_rate = kwargs["classifier_learning_rate"]
+    classifier_beta_1: float = 0.9
+    if "classifier_beta_1" in kwargs:
+        assert isinstance(kwargs["classifier_beta_1"], float) and (0.0 <= kwargs["classifier_beta_1"] < 1.0)
+        classifier_beta_1 = kwargs["classifier_beta_1"]
+    classifier_beta_2: float = 0.999
+    if "classifier_beta_2" in kwargs:
+        assert isinstance(kwargs["classifier_beta_2"], float) and (0.0 <= kwargs["classifier_beta_2"] < 1.0)
+        classifier_beta_2 = kwargs["classifier_beta_2"]
 
     size_features: int = x.size(1)
     size_labels: int = int(y.max().item() - y.min().item()) + 1
@@ -95,25 +97,25 @@ def calculate_f1_score(individual: np.ndarray,
                 train_y = torch.cat([train_y, new_y], dim=0)
 
     classifier: torch.nn.Module = DNNClassifier(size_features=size_features,
-                                                num_hidden_layers=num_hidden_layers,
+                                                num_hidden_layers=classifier_num_hidden_layers,
                                                 size_labels=size_labels)
     trained_classifier: torch.nn.Module = classifier_train(classifier=classifier,
                                                            x=train_x,
                                                            y=train_y,
-                                                           batch_size=batch_size,
-                                                           num_epochs=num_epochs,
-                                                           run_device=run_device,
-                                                           learning_rate=learning_rate,
-                                                           beta_1=beta_1,
-                                                           beta_2=beta_2,
+                                                           batch_size=classifier_batch_size,
+                                                           num_epochs=classifier_num_epochs,
+                                                           run_device=classifier_run_device,
+                                                           learning_rate=classifier_learning_rate,
+                                                           beta_1=classifier_beta_1,
+                                                           beta_2=classifier_beta_2,
                                                            rand_seed=rand_seed,
                                                            verbose=False)
     f1_score: np.ndarray = classifier_evaluate(classifier=trained_classifier,
                                                x=x,
                                                y=y,
                                                metric="f1_score",
-                                               run_device=run_device,
+                                               run_device=classifier_run_device,
                                                rand_seed=rand_seed,
                                                verbose=False)
 
-    return tuple(f1_score.tolist())
+    return tuple(f1_score.tolist(), )
