@@ -9,6 +9,6 @@ python3 train_GA.py \
     --beta-1 0.9 \
     --beta-2 0.999 \
     --batch-size 1024 \
-    --num-epochs 16 \
+    --num-epochs 100 \
     --run-device "cpu" \
     --rand-seed 777

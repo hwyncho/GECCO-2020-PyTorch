@@ -170,15 +170,6 @@ def parse_args():
     parser.add_argument("--num-hidden-layers", type=int, default=1, required=False,
                         help="Parameter num_hidden_layers of classifier.",
                         dest="num_hidden_layers")
-    parser.add_argument("--learning-rate", type=float, default=0.001, required=False,
-                        help="Learning rate for Adam optimizer.",
-                        dest="learning_rate")
-    parser.add_argument("--beta-1", type=float, default=0.9, required=False,
-                        help="Beta 1 for Adam optimizer.",
-                        dest="beta_1")
-    parser.add_argument("--beta-2", type=float, default=0.999, required=False,
-                        help="Beta 2 for Adam optimizer.",
-                        dest="beta_2")
     parser.add_argument("--batch-size", type=int, default=16, required=False,
                         help="Batch size during training.",
                         dest="batch_size")
@@ -188,6 +179,15 @@ def parse_args():
     parser.add_argument("--run-device", type=str, default="cpu", required=False,
                         help="Running device for PyTorch.",
                         dest="run_device")
+    parser.add_argument("--learning-rate", type=float, default=0.001, required=False,
+                        help="Learning rate for Adam optimizer.",
+                        dest="learning_rate")
+    parser.add_argument("--beta-1", type=float, default=0.9, required=False,
+                        help="Beta 1 for Adam optimizer.",
+                        dest="beta_1")
+    parser.add_argument("--beta-2", type=float, default=0.999, required=False,
+                        help="Beta 2 for Adam optimizer.",
+                        dest="beta_2")
     parser.add_argument("--rand-seed", type=int, default=0, required=False,
                         help="Seed for generating random numbers.",
                         dest="rand_seed")
@@ -210,12 +210,12 @@ if __name__ == "__main__":
     GAN_NUM_HIDDEN_LAYERS: int = args.gan_num_hidden_layers
     MODEL_PATH: str = args.model_save_path
     NUM_HIDDEN_LAYERS: int = args.num_hidden_layers
-    LEARNING_RATE: float = args.learning_rate
-    BETA_1: float = args.beta_1
-    BETA_2: float = args.beta_2
     BATCH_SIZE: int = args.batch_size
     NUM_EPOCHS: int = args.num_epochs
     RUN_DEVICE: str = args.run_device
+    LEARNING_RATE: float = args.learning_rate
+    BETA_1: float = args.beta_1
+    BETA_2: float = args.beta_2
     RAND_SEED: int = args.rand_seed
     VERBOSE: bool = args.verbose
 
@@ -226,12 +226,12 @@ if __name__ == "__main__":
         raise FileExistsError(MODEL_PATH)
 
     assert isinstance(NUM_HIDDEN_LAYERS, int) and (NUM_HIDDEN_LAYERS > 0)
-    assert isinstance(LEARNING_RATE, float) and (LEARNING_RATE > 0.0)
-    assert isinstance(BETA_1, float) and (0.0 <= BETA_1 < 1.0)
-    assert isinstance(BETA_2, float) and (0.0 <= BETA_2 < 1.0)
     assert isinstance(BATCH_SIZE, int) and (BATCH_SIZE > 0)
     assert isinstance(NUM_EPOCHS, int) and (NUM_EPOCHS > 0)
     assert isinstance(RUN_DEVICE, str) and (RUN_DEVICE.lower() in ["cpu", "cuda"])
+    assert isinstance(LEARNING_RATE, float) and (LEARNING_RATE > 0.0)
+    assert isinstance(BETA_1, float) and (0.0 <= BETA_1 < 1.0)
+    assert isinstance(BETA_2, float) and (0.0 <= BETA_2 < 1.0)
     assert isinstance(RAND_SEED, int) and (RAND_SEED >= 0)
     assert isinstance(VERBOSE, bool)
 
@@ -250,20 +250,20 @@ if __name__ == "__main__":
     size_labels: int = int(y.max().item() - y.min().item()) + 1
 
     # Train a classifiers and save the classifiers.
-    classifier = DNNClassifier(size_features=size_features,
-                               num_hidden_layers=NUM_HIDDEN_LAYERS,
-                               size_labels=size_labels)
-    classifier = train(classifier=classifier,
-                       x=x,
-                       y=y,
-                       batch_size=BATCH_SIZE,
-                       num_epochs=NUM_EPOCHS,
-                       run_device=RUN_DEVICE,
-                       learning_rate=LEARNING_RATE,
-                       beta_1=BETA_1,
-                       beta_2=BETA_2,
-                       rand_seed=RAND_SEED,
-                       verbose=VERBOSE)
-    save_model(classifier=classifier, model_path=MODEL_PATH)
+    classifier: torch.nn.Module = DNNClassifier(size_features=size_features,
+                                                num_hidden_layers=NUM_HIDDEN_LAYERS,
+                                                size_labels=size_labels)
+    trained_classifier: torch.nn.Module = train(classifier=classifier,
+                                                x=x,
+                                                y=y,
+                                                batch_size=BATCH_SIZE,
+                                                num_epochs=NUM_EPOCHS,
+                                                run_device=RUN_DEVICE,
+                                                learning_rate=LEARNING_RATE,
+                                                beta_1=BETA_1,
+                                                beta_2=BETA_2,
+                                                rand_seed=RAND_SEED,
+                                                verbose=VERBOSE)
+    save_model(classifier=trained_classifier, model_path=MODEL_PATH)
 
     print(">> Save the trained classifier: {0}".format((MODEL_PATH)))

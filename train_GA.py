@@ -73,14 +73,6 @@ def load_data_with_samples(data_path: str, samples_dir: str, individual: list) -
 
 
 def parse_args():
-    class StoreDictKeyPair(argparse.Action):
-        def __call__(self, parser, namespace, values, option_string=None):
-            my_dict: dict = dict()
-            for kv in values.split(","):
-                k, v = kv.split("=")
-                my_dict[k] = v
-            setattr(namespace, self.dest, my_dict)
-
     parser = argparse.ArgumentParser(description="Arguments for train a classifiers.")
     parser.add_argument("--train-data-path", type=str, required=True,
                         help="File path of a train data.",
@@ -94,15 +86,6 @@ def parse_args():
     parser.add_argument("--num-hidden-layers", type=int, default=1, required=False,
                         help="Parameter num_hidden_layers of classifier.",
                         dest="num_hidden_layers")
-    parser.add_argument("--learning-rate", type=float, default=0.001, required=False,
-                        help="Learning rate for Adam optimizer.",
-                        dest="learning_rate")
-    parser.add_argument("--beta-1", type=float, default=0.9, required=False,
-                        help="Beta 1 for Adam optimizer.",
-                        dest="beta_1")
-    parser.add_argument("--beta-2", type=float, default=0.999, required=False,
-                        help="Beta 2 for Adam optimizer.",
-                        dest="beta_2")
     parser.add_argument("--batch-size", type=int, default=16, required=False,
                         help="Batch size during training.",
                         dest="batch_size")
@@ -112,6 +95,15 @@ def parse_args():
     parser.add_argument("--run-device", type=str, default="cpu", required=False,
                         help="Running device for PyTorch.",
                         dest="run_device")
+    parser.add_argument("--learning-rate", type=float, default=0.001, required=False,
+                        help="Learning rate for Adam optimizer.",
+                        dest="learning_rate")
+    parser.add_argument("--beta-1", type=float, default=0.9, required=False,
+                        help="Beta 1 for Adam optimizer.",
+                        dest="beta_1")
+    parser.add_argument("--beta-2", type=float, default=0.999, required=False,
+                        help="Beta 2 for Adam optimizer.",
+                        dest="beta_2")
     parser.add_argument("--rand-seed", type=int, default=0, required=False,
                         help="Seed for generating random numbers.",
                         dest="rand_seed")
@@ -128,12 +120,12 @@ if __name__ == "__main__":
     SAMPLES_DIR: str = args.samples_dir
     MODEL_PATH: str = args.model_save_path
     NUM_HIDDEN_LAYERS: int = args.num_hidden_layers
-    LEARNING_RATE: float = args.learning_rate
-    BETA_1: float = args.beta_1
-    BETA_2: float = args.beta_2
     BATCH_SIZE: int = args.batch_size
     NUM_EPOCHS: int = args.num_epochs
     RUN_DEVICE: str = args.run_device
+    LEARNING_RATE: float = args.learning_rate
+    BETA_1: float = args.beta_1
+    BETA_2: float = args.beta_2
     RAND_SEED: int = args.rand_seed
     VERBOSE: bool = args.verbose
 
@@ -147,12 +139,12 @@ if __name__ == "__main__":
         raise FileExistsError(MODEL_PATH)
 
     assert isinstance(NUM_HIDDEN_LAYERS, int) and (NUM_HIDDEN_LAYERS > 0)
-    assert isinstance(LEARNING_RATE, float) and (LEARNING_RATE > 0.0)
-    assert isinstance(BETA_1, float) and (0.0 <= BETA_1 < 1.0)
-    assert isinstance(BETA_2, float) and (0.0 <= BETA_2 < 1.0)
     assert isinstance(BATCH_SIZE, int) and (BATCH_SIZE > 0)
     assert isinstance(NUM_EPOCHS, int) and (NUM_EPOCHS > 0)
     assert isinstance(RUN_DEVICE, str) and (RUN_DEVICE.lower() in ["cpu", "cuda"])
+    assert isinstance(LEARNING_RATE, float) and (LEARNING_RATE > 0.0)
+    assert isinstance(BETA_1, float) and (0.0 <= BETA_1 < 1.0)
+    assert isinstance(BETA_2, float) and (0.0 <= BETA_2 < 1.0)
     assert isinstance(RAND_SEED, int) and (RAND_SEED >= 0)
     assert isinstance(VERBOSE, bool)
 
@@ -162,8 +154,8 @@ if __name__ == "__main__":
     individual: list = [[]]
 
     x, y = load_data_with_samples(data_path=TRAIN_DATA_PATH,
-                        samples_dir=SAMPLES_DIR,
-                        individual=individual.copy())
+                                  samples_dir=SAMPLES_DIR,
+                                  individual=individual)
     size_features: int = x.size(1)
     size_labels: int = int(y.max().item() - y.min().item()) + 1
 
@@ -171,17 +163,17 @@ if __name__ == "__main__":
     classifier = DNNClassifier(size_features=size_features,
                                num_hidden_layers=NUM_HIDDEN_LAYERS,
                                size_labels=size_labels)
-    classifier = train(classifier=classifier,
-                       x=x,
-                       y=y,
-                       batch_size=BATCH_SIZE,
-                       num_epochs=NUM_EPOCHS,
-                       run_device=RUN_DEVICE,
-                       learning_rate=LEARNING_RATE,
-                       beta_1=BETA_1,
-                       beta_2=BETA_2,
-                       rand_seed=RAND_SEED,
-                       verbose=VERBOSE)
-    save_model(classifier=classifier, model_path=MODEL_PATH)
+    trained_classifier = train(classifier=classifier,
+                               x=x,
+                               y=y,
+                               batch_size=BATCH_SIZE,
+                               num_epochs=NUM_EPOCHS,
+                               run_device=RUN_DEVICE,
+                               learning_rate=LEARNING_RATE,
+                               beta_1=BETA_1,
+                               beta_2=BETA_2,
+                               rand_seed=RAND_SEED,
+                               verbose=VERBOSE)
+    save_model(classifier=trained_classifier, model_path=MODEL_PATH)
 
     print(">> Save the trained classifier: {0}".format((MODEL_PATH)))
