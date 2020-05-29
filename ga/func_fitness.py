@@ -14,8 +14,8 @@ def calculate_f1_score(individual: np.ndarray,
                        x: torch.Tensor,
                        y: torch.Tensor,
                        list_sample_by_label: list,
-                       rand_seed: int = 0,
-                       **kwargs) -> Tuple[float, ...]:
+                       random_state: torch.Tensor = None,
+                       **kwargs) -> Tuple:
     """
     Function to calculate fitness.
 
@@ -25,18 +25,19 @@ def calculate_f1_score(individual: np.ndarray,
     x: torch.Tensor
     y: torch.Tensor
     list_sample_by_label: list
-    rand_seed: int
+    random_state: torch.Tensor
 
     Returns
     -------
-    Tuple[float, ...]
+    Tuple
 
     """
     assert isinstance(individual, np.ndarray)
     assert isinstance(x, torch.Tensor)
     assert isinstance(y, torch.Tensor)
     assert isinstance(list_sample_by_label, list)
-    assert isinstance(rand_seed, int) and (rand_seed >= 0)
+    if random_state is not None:
+        assert isinstance(random_state, torch.Tensor)
 
     classifier_num_hidden_layers: int = 1
     if "classifier_num_hidden_layers" in kwargs:
@@ -99,23 +100,23 @@ def calculate_f1_score(individual: np.ndarray,
     classifier: torch.nn.Module = DNNClassifier(size_features=size_features,
                                                 num_hidden_layers=classifier_num_hidden_layers,
                                                 size_labels=size_labels)
-    trained_classifier: torch.nn.Module = classifier_train(classifier=classifier,
-                                                           x=train_x,
-                                                           y=train_y,
-                                                           batch_size=classifier_batch_size,
-                                                           num_epochs=classifier_num_epochs,
-                                                           run_device=classifier_run_device,
-                                                           learning_rate=classifier_learning_rate,
-                                                           beta_1=classifier_beta_1,
-                                                           beta_2=classifier_beta_2,
-                                                           rand_seed=rand_seed,
-                                                           verbose=False)
+    trained_classifier, trained_random_state = classifier_train(classifier=classifier,
+                                                                x=train_x,
+                                                                y=train_y,
+                                                                batch_size=classifier_batch_size,
+                                                                num_epochs=classifier_num_epochs,
+                                                                run_device=classifier_run_device,
+                                                                learning_rate=classifier_learning_rate,
+                                                                beta_1=classifier_beta_1,
+                                                                beta_2=classifier_beta_2,
+                                                                random_state=random_state,
+                                                                verbose=False)
     f1_score: np.ndarray = classifier_evaluate(classifier=trained_classifier,
                                                x=x,
                                                y=y,
                                                metric="f1_score",
                                                run_device=classifier_run_device,
-                                               rand_seed=rand_seed,
+                                               random_state=trained_random_state,
                                                verbose=False)
 
     return tuple(f1_score.tolist(), )

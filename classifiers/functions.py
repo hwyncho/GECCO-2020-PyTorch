@@ -3,6 +3,7 @@ import copy
 import os
 import time
 from pprint import pprint
+from typing import Tuple
 
 import numpy as np
 import pandas as pd
@@ -19,8 +20,8 @@ def train(classifier: torch.nn.Module,
           learning_rate: float = 0.001,
           beta_1: float = 0.9,
           beta_2: float = 0.999,
-          rand_seed: int = 0,
-          verbose: bool = False) -> torch.nn.Module:
+          random_state: torch.Tensor = None,
+          verbose: bool = False) -> Tuple[torch.nn.Module, torch.Tensor]:
     """
     Function to train classifiers and save the trained classifiers.
 
@@ -35,12 +36,12 @@ def train(classifier: torch.nn.Module,
     learning_rate: float
     beta_1: float
     beta_2: float
-    rand_seed: int
+    random_state: torch.Tensor
     verbose: bool
 
     Returns
     -------
-    torch.nn.Module
+    Tuple[torch.nn.Module, torch.Tensor]
 
     """
     assert isinstance(classifier, torch.nn.Module)
@@ -52,16 +53,16 @@ def train(classifier: torch.nn.Module,
     assert isinstance(learning_rate, float) and (learning_rate > 0.0)
     assert isinstance(beta_1, float) and (0.0 <= beta_1 < 1.0)
     assert isinstance(beta_2, float) and (0.0 <= beta_2 < 1.0)
-    assert isinstance(rand_seed, int) and (rand_seed >= 0)
     assert isinstance(verbose, bool)
 
-    run_device = run_device.lower()
-
     # Set the seed for generating random numbers.
-    torch.manual_seed(seed=rand_seed)
+    if random_state is not None:
+        assert isinstance(random_state, torch.Tensor)
+        torch.set_rng_state(random_state)
 
     # Set the classifier.
     classifier = copy.deepcopy(classifier.cpu())
+    run_device = run_device.lower()
     if run_device == "cuda":
         assert torch.cuda.is_available()
         classifier = classifier.cuda()
@@ -92,8 +93,7 @@ def train(classifier: torch.nn.Module,
         for (_, batch) in enumerate(dataloader, 0):
             batch_x, batch_y = batch
             if run_device == "cuda":
-                batch_x = batch_x.cuda()
-                batch_y = batch_y.cuda()
+                batch_x, batch_y = batch_x.cuda(), batch_y.cuda()
 
             optimizer.zero_grad()
             output: torch.Tensor = classifier(batch_x)
@@ -105,21 +105,18 @@ def train(classifier: torch.nn.Module,
         end_time: float = time.time()
 
         if verbose:
-            print(log.format(epoch,
-                             num_epochs,
-                             np.mean(loss_list),
-                             end_time - start_time))
+            print(log.format(epoch, num_epochs, np.mean(loss_list), end_time - start_time))
 
     if isinstance(classifier, torch.nn.DataParallel):
         classifier = classifier.module
 
-    return classifier.cpu()
+    return classifier.cpu(), torch.get_rng_state()
 
 
 def predict(classifier: torch.nn.Module,
             x: torch.Tensor,
             run_device: str = "cpu",
-            rand_seed: int = 0) -> np.ndarray:
+            random_state: torch.Tensor = None) -> np.ndarray:
     """
     Function to evaluate the trained classifiers.
 
@@ -128,7 +125,7 @@ def predict(classifier: torch.nn.Module,
     classifier: torch.nn.Module
     x: torch.Tensor
     run_device: str
-    rand_seed: int
+    random_state: torch.Tensor
 
     Returns
     -------
@@ -138,15 +135,15 @@ def predict(classifier: torch.nn.Module,
     assert isinstance(classifier, torch.nn.Module)
     assert isinstance(x, torch.Tensor)
     assert isinstance(run_device, str) and (run_device.lower() in ["cpu", "cuda"])
-    assert isinstance(rand_seed, int) and (rand_seed >= 0)
-
-    run_device = run_device.lower()
 
     # Set the seed for generating random numbers.
-    torch.manual_seed(seed=rand_seed)
+    if random_state is not None:
+        assert isinstance(random_state, torch.Tensor)
+        torch.set_rng_state(random_state)
 
     # Set the classifiers.
     classifier = copy.deepcopy(classifier.cpu())
+    run_device = run_device.lower()
     if run_device == "cuda":
         assert torch.cuda.is_available()
         classifier = classifier.cuda()
@@ -180,7 +177,7 @@ def evaluate(classifier: torch.nn.Module,
              y: torch.Tensor,
              metric: str = "f1_score",
              run_device: str = "cpu",
-             rand_seed: int = 0,
+             random_state: torch.Tensor = None,
              verbose: bool = False) -> np.ndarray:
     """
     Function to evaluate the trained classifiers.
@@ -192,7 +189,7 @@ def evaluate(classifier: torch.nn.Module,
     y: torch.Tensor
     metric: str
     run_device: str
-    rand_seed: int
+    random_state: torch.Tensor = None
     verbose: bool
 
     Returns
@@ -205,19 +202,18 @@ def evaluate(classifier: torch.nn.Module,
     assert isinstance(y, torch.Tensor)
     assert isinstance(metric, str) and (metric.lower() in ["confusion_matrix", "f1_score"])
     assert isinstance(run_device, str) and (run_device.lower() in ["cpu", "cuda"])
-    assert isinstance(rand_seed, int) and (rand_seed >= 0)
+    if random_state is not None:
+        assert isinstance(random_state, torch.Tensor)
     assert isinstance(verbose, bool)
 
-    metric = metric.lower()
     run_device = run_device.lower()
-
-    num_labels: int = int(y.max().item() - y.min().item()) + 1
-
     predict_y: np.ndarray = predict(classifier=classifier,
                                     x=x,
                                     run_device=run_device,
-                                    rand_seed=rand_seed)
+                                    random_state=random_state)
 
+    num_labels: int = int(y.max().item() - y.min().item()) + 1
+    metric = metric.lower()
     if metric == "confusion_matrix":
         confusion_matrix: np.ndarray = sklearn_metrics.confusion_matrix(y.numpy(),
                                                                         predict_y,
@@ -242,7 +238,7 @@ def evaluate(classifier: torch.nn.Module,
             df_f1.columns = ["Label_{0}".format(label) for label in range(0, num_labels)]
             df_f1.index = ["F1_score"]
 
-            print(">> F1 score:")
+            print(">> F1 score :")
             pprint(df_f1)
 
         return f1_score
@@ -250,7 +246,7 @@ def evaluate(classifier: torch.nn.Module,
         raise ValueError()
 
 
-def save_model(classifier: torch.nn.Module, model_path: str) -> bool:
+def save_model(classifier: torch.nn.Module, model_path: str, random_state: torch.Tensor) -> bool:
     """
     Function to save the parameters of the trained classifier.
 
@@ -258,6 +254,7 @@ def save_model(classifier: torch.nn.Module, model_path: str) -> bool:
     ----------
     classifier: torch.nn.Module
     model_path: str
+    random_state: torch.Tensor
 
     Returns
     -------
@@ -273,13 +270,20 @@ def save_model(classifier: torch.nn.Module, model_path: str) -> bool:
     if not os.path.exists(model_pardir):
         os.makedirs(model_pardir)
 
+    checkpoint: dict = {"classifier_state_dict": classifier.cpu().state_dict()}
+    if random_state is not None:
+        assert isinstance(random_state, torch.Tensor)
+        checkpoint["random_state"] = random_state
+    else:
+        checkpoint["random_state"] = torch.get_rng_state()
+
     # Save the trained classifiers.
-    torch.save(classifier.cpu().state_dict(), model_path)
+    torch.save(checkpoint, model_path)
 
     return True
 
 
-def load_model(classifier: torch.nn.Module, model_path: str) -> torch.nn.Module:
+def load_model(classifier: torch.nn.Module, model_path: str) -> Tuple[torch.nn.Module, torch.Tensor]:
     """
     Function to load the parameters from the trained classifier.
 
@@ -290,15 +294,21 @@ def load_model(classifier: torch.nn.Module, model_path: str) -> torch.nn.Module:
 
     Returns
     -------
-    torch.nn.Module
+    Tuple[torch.nn.Module, torch.Tensor]
 
     """
     assert isinstance(classifier, torch.nn.Module)
     assert isinstance(model_path, str) and os.path.exists(model_path)
     assert os.path.splitext(model_path)[1].lower() in [".pt", ".pth"]
 
+    checkpoint: dict = torch.load(model_path, map_location=torch.device("cpu"))
+
     # Load the trained classifiers.
     classifier = copy.deepcopy(classifier.cpu())
-    classifier.load_state_dict(torch.load(model_path, map_location=torch.device("cpu")))
+    classifier.load_state_dict(checkpoint["classifier_state_dict"])
 
-    return classifier
+    if "random_state" in checkpoint:
+        random_state = checkpoint["random_state"]
+        return classifier, random_state
+    else:
+        return classifier, torch.get_rng_state()

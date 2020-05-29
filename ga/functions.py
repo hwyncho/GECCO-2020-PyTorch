@@ -53,6 +53,7 @@ def run(x: torch.Tensor,
         mutation_rate: float = 0.01,
         replacement_method: str = "parents",
         num_generations: int = 1,
+        checkpoint_dir: str = None,
         rand_seed: int = 0,
         verbose: bool = False,
         **kwargs) -> tuple:
@@ -73,6 +74,8 @@ def run(x: torch.Tensor,
     assert isinstance(replacement_method, str)
     assert replacement_method.lower() in ["parents", "parents_worse", "parents_better", "worst", "best"]
     assert isinstance(num_generations, int) and num_generations >= 1
+    if checkpoint_dir is not None:
+        assert isinstance(checkpoint_dir, str)
     assert isinstance(rand_seed, int) and rand_seed > 0
     assert isinstance(verbose, bool)
 
@@ -113,8 +116,17 @@ def run(x: torch.Tensor,
         assert isinstance(kwargs["classifier_beta_2"], float) and (0.0 <= kwargs["classifier_beta_2"] < 1.0)
         classifier_beta_2 = kwargs["classifier_beta_2"]
 
+    # Set the seed for generating random numbers.
     random.seed(a=rand_seed)
     np.random.seed(seed=rand_seed)
+    torch.manual_seed(seed=rand_seed)
+
+    checkpoint_save: bool = False
+    checkpoint_path_template: str = os.path.join(checkpoint_dir, "generation={0}", "checkpoint.pkl")
+    if checkpoint_dir is not None:
+        checkpoint_save = True
+        if not os.path.exists(checkpoint_dir):
+            os.makedirs(checkpoint_dir)
 
     size_labels: int = int(y.max().item() - y.min().item()) + 1
 
@@ -144,7 +156,7 @@ def run(x: torch.Tensor,
                      x=x,
                      y=y,
                      list_sample_by_label=list_sample_by_label,
-                     rand_seed=rand_seed,
+                     random_state=torch.get_rng_state(),
                      classifier_num_hidden_layers=classifier_num_hidden_layers,
                      classifier_batch_size=classifier_batch_size,
                      classifier_num_epochs=classifier_num_epochs,
@@ -207,9 +219,6 @@ def run(x: torch.Tensor,
     else:
         raise ValueError()
 
-    population = toolbox.population(n=population_size)
-    halloffame = tools.HallOfFame(population_size, similar=np.array_equal)
-
     stats = tools.Statistics(lambda ind: ind.fitness.values)
     stats.register("min", np.min, axis=0)
     stats.register("max", np.max, axis=0)
@@ -218,6 +227,10 @@ def run(x: torch.Tensor,
 
     logbook = tools.Logbook()
     logbook.header = ["gen", "num_evals"] + (stats.fields if stats else [])
+
+    generation: int = 0
+    population = toolbox.population(n=population_size)
+    halloffame = tools.HallOfFame(population_size, similar=np.array_equal)
 
     # Evaluate the individuals with an invalid fitness
     invalid_individual: list = [individual for individual in population if not individual.fitness.valid]
@@ -229,13 +242,17 @@ def run(x: torch.Tensor,
         halloffame.update(population)
         population[:] = halloffame[:]
 
+    if checkpoint_save:
+        checkpoint_path: str = checkpoint_path_template.format(generation)
+        save_checkpoint(population=population, save_path=checkpoint_path)
+
     record = stats.compile(population) if stats else {}
     logbook.record(gen=0, num_evals=len(invalid_individual), **record)
     if verbose:
         print(logbook.stream)
 
     # Begin the generational process
-    for gen in range(1, num_generations + 1):
+    for generation in range(1, num_generations + 1):
         # Select the next generation individuals
         parents = toolbox.select(population, k=crossover_size)
         offspring = [toolbox.clone(individual) for individual in parents]
@@ -256,7 +273,7 @@ def run(x: torch.Tensor,
         for (individual, fitness) in zip(invalid_individual, list_fitness):
             individual.fitness.values = fitness
 
-        # Apply reeplacement
+        # Apply replacement
         population = toolbox.replace(population=population, parents=parents, offspring=offspring)
 
         # Update the hall of fame with the generated individuals
@@ -264,18 +281,77 @@ def run(x: torch.Tensor,
             halloffame.update(population)
             population[:] = halloffame[:]
 
+        if checkpoint_save:
+            checkpoint_path: str = checkpoint_path_template.format(generation)
+            save_checkpoint(population=population, save_path=checkpoint_path)
+
         # Append the current generation statistics to the logbook
         record = stats.compile(population) if stats else {}
-        logbook.record(gen=gen, num_evals=len(invalid_individual), **record)
+        logbook.record(gen=generation, num_evals=len(invalid_individual), **record)
         if verbose:
             print(logbook.stream)
 
-    list_individual: list = list()
-    for individual in population:
-        temp: dict = {
-            "chromosome": individual.tolist(),
-            "fitness": individual.fitness.values
-        }
-        list_individual.append(temp)
+    return population, logbook
 
-    return list_individual, logbook
+
+def save_checkpoint(population: list, save_path: str) -> bool:
+    """
+    Save population to file.
+
+    Parameters
+    ----------
+    population
+    save_path: str
+
+    Returns
+    -------
+    bool
+
+    """
+    assert isinstance(save_path, str)
+
+    if os.path.exists(save_path):
+        raise FileExistsError(save_path)
+
+    save_dir: str = os.path.split(save_path)[0]
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    checkpoint: dict = {
+        "population": population,
+        "random_state": random.getstate(),
+        "numpy_random_state": np.random.get_state(),
+        "torch_random_state": torch.get_rng_state()
+    }
+
+    with open(save_path, mode="wb") as fp:
+        pickle.dump(checkpoint, fp)
+
+    return True
+
+
+def load_checkpoint(load_path: str) -> dict:
+    """
+    Load population from file.
+
+    Parameters
+    ----------
+    load_path: str
+
+    Returns
+    -------
+    dict
+
+    """
+    assert isinstance(load_path, str)
+
+    if not os.path.exists(load_path):
+        raise FileNotFoundError(load_path)
+
+    creator.create(name="FitnessMax", base=base.Fitness, weights=(1.0,))
+    creator.create(name="Individual", base=np.ndarray, fitness=creator.FitnessMax)
+
+    with open(load_path, mode="rb") as fp:
+        checkpoint: dict = pickle.load(fp)
+
+    return checkpoint
