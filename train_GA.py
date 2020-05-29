@@ -149,7 +149,10 @@ if __name__ == "__main__":
     assert isinstance(VERBOSE, bool)
 
     np.random.seed(seed=RAND_SEED)
-    torch.manual_seed(seed=RAND_SEED)
+    torch_random_generator = torch.manual_seed(seed=RAND_SEED)
+
+    numpy_random_state = np.random.get_state()
+    torch_random_state = torch_random_generator.get_state()
 
     individual: list = [[]]
 
@@ -163,17 +166,17 @@ if __name__ == "__main__":
     classifier = DNNClassifier(size_features=size_features,
                                num_hidden_layers=NUM_HIDDEN_LAYERS,
                                size_labels=size_labels)
-    trained_classifier = train(classifier=classifier,
-                               x=x,
-                               y=y,
-                               batch_size=BATCH_SIZE,
-                               num_epochs=NUM_EPOCHS,
-                               run_device=RUN_DEVICE,
-                               learning_rate=LEARNING_RATE,
-                               beta_1=BETA_1,
-                               beta_2=BETA_2,
-                               rand_seed=RAND_SEED,
-                               verbose=VERBOSE)
-    save_model(classifier=trained_classifier, model_path=MODEL_PATH)
+    trained_classifier, trained_random_state = train(classifier=classifier,
+                                                     x=x,
+                                                     y=y,
+                                                     batch_size=BATCH_SIZE,
+                                                     num_epochs=NUM_EPOCHS,
+                                                     run_device=RUN_DEVICE,
+                                                     learning_rate=LEARNING_RATE,
+                                                     beta_1=BETA_1,
+                                                     beta_2=BETA_2,
+                                                     random_state=torch_random_state,
+                                                     verbose=VERBOSE)
+    save_model(classifier=trained_classifier, model_path=MODEL_PATH, random_state=trained_random_state)
 
     print(">> Save the trained classifier: {0}".format((MODEL_PATH)))

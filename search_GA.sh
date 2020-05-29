@@ -13,7 +13,7 @@ python3 search_GA.py \
     --ga-mutation-rate 0.001 \
     --ga-replacement-method "parents" \
     --ga-num-generations 100 \
-    --ga-save-path "./GA-Population/population.pkl" \
+    --ga-checkpoint-dir "./GA-Checkpoints" \
     --classifier-num-hidden-layers 2 \
     --classifier-batch-size 1024 \
     --classifier-num-epochs 100 \

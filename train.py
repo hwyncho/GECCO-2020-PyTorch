@@ -53,10 +53,20 @@ def load_dataset(data_path: str,
         assert isinstance(kwargs["smote_k_neighbors"], int) and (kwargs["smote_k_neighbors"] > 0)
         smote_k_neighbors = kwargs["smote_k_neighbors"]
 
+    smote_borderline_kind: str = "borderline-1"
+    if "smote_borderline_kind" in kwargs:
+        assert isinstance(kwargs["smote_borderline_kind"], str)
+        smote_borderline_kind = str(kwargs["smote_borderline_kind"]).lower()
+
     smote_svm_kernel: str = "rbf"
     if "smote_svm_kernel" in kwargs:
         assert isinstance(kwargs["smote_svm_kernel"], str)
         smote_svm_kernel = str(kwargs["smote_svm_kernel"]).lower()
+
+    adasyn_n_neighbors: int = 5
+    if "adasyn_n_neighbors" in kwargs:
+        assert isinstance(kwargs["adasyn_n_neighbors"], int) and (kwargs["adasyn_n_neighbors"] > 0)
+        adasyn_n_neighbors = kwargs["adasyn_n_neighbors"]
 
     gan_size_latent: int = 100
     if "gan_size_latent" in kwargs:
@@ -96,11 +106,24 @@ def load_dataset(data_path: str,
                                        "k_neighbors={0}".format(smote_k_neighbors),
                                        "ratio_by_label={0}".format(str(MAX_RATIO_BY_LABEL)),
                                        "sample_by_label.pkl")
+        elif sampling_method == "smote_borderline":
+            sample_path = os.path.join(samples_dir,
+                                       sampling_method,
+                                       "k_neighbors={0}".format(smote_k_neighbors),
+                                       "borderline_kind={0}".format(smote_borderline_kind),
+                                       "ratio_by_label={0}".format(str(MAX_RATIO_BY_LABEL)),
+                                       "sample_by_label.pkl")
         elif sampling_method == "smote_svm":
             sample_path = os.path.join(samples_dir,
                                        sampling_method,
                                        "k_neighbors={0}".format(smote_k_neighbors),
                                        "svm_kernel={0}".format(smote_svm_kernel),
+                                       "ratio_by_label={0}".format(str(MAX_RATIO_BY_LABEL)),
+                                       "sample_by_label.pkl")
+        elif sampling_method == "adasyn":
+            sample_path = os.path.join(samples_dir,
+                                       sampling_method,
+                                       "n_neighbors={0}".format(adasyn_n_neighbors),
                                        "ratio_by_label={0}".format(str(MAX_RATIO_BY_LABEL)),
                                        "sample_by_label.pkl")
         elif sampling_method == "gan":
@@ -155,9 +178,15 @@ def parse_args():
     parser.add_argument("--smote-k-neighbors", type=int, default=5, required=False,
                         help="Parameter k_neighbors of SMOTE.",
                         dest="smote_k_neighbors")
+    parser.add_argument("--smote-borderline-kind", type=str, default="borderline-1", required=False,
+                        help="Parameter borderline_kind of BorderlineSMOTE.",
+                        dest="smote_borderline_kind")
     parser.add_argument("--smote-svm-kernel", type=str, default="linear", required=False,
                         help="Parameter svm_kernel of SVMSMOTE.",
                         dest="smote_svm_kernel")
+    parser.add_argument("--adasyn-n-neighbors", type=int, default=5, required=False,
+                        help="Parameter n_neighbors of ADASYN.",
+                        dest="adasyn_n_neighbors")
     parser.add_argument("--gan-size-latent", type=int, default=100, required=False,
                         help="Parameter size_latent of GAN.",
                         dest="gan_size_latent")
@@ -205,7 +234,9 @@ if __name__ == "__main__":
     RATIO_BY_LABEL: dict = args.ratio_by_label
     SAMPLES_DIR: str = args.samples_dir
     SMOTE_K_NEIGHBORS: int = args.smote_k_neighbors
+    SMOTE_BORDERLINE_KIND: str = args.smote_borderline_kind
     SMOTE_SVM_KERNEL: str = args.smote_svm_kernel
+    ADASYN_N_NEIGHBORS: int = args.adasyn_n_neighbors
     GAN_SIZE_LATENT: int = args.gan_size_latent
     GAN_NUM_HIDDEN_LAYERS: int = args.gan_num_hidden_layers
     MODEL_PATH: str = args.model_save_path
@@ -236,14 +267,19 @@ if __name__ == "__main__":
     assert isinstance(VERBOSE, bool)
 
     np.random.seed(seed=RAND_SEED)
-    torch.manual_seed(seed=RAND_SEED)
+    torch_random_generator = torch.manual_seed(seed=RAND_SEED)
+
+    numpy_random_state = np.random.get_state()
+    torch_random_state = torch_random_generator.get_state()
 
     x, y = load_dataset(data_path=TRAIN_DATA_PATH,
                         sampling_method=SAMPLING_METHOD,
                         ratio_by_label=RATIO_BY_LABEL,
                         samples_dir=SAMPLES_DIR,
                         smote_k_neighbors=SMOTE_K_NEIGHBORS,
+                        smote_borderline_kind=SMOTE_BORDERLINE_KIND,
                         smote_svm_kernel=SMOTE_SVM_KERNEL,
+                        adasyn_n_neighbors=ADASYN_N_NEIGHBORS,
                         gan_size_latent=GAN_SIZE_LATENT,
                         gan_num_hidden_layers=GAN_NUM_HIDDEN_LAYERS)
     size_features: int = x.size(1)
@@ -253,17 +289,17 @@ if __name__ == "__main__":
     classifier: torch.nn.Module = DNNClassifier(size_features=size_features,
                                                 num_hidden_layers=NUM_HIDDEN_LAYERS,
                                                 size_labels=size_labels)
-    trained_classifier: torch.nn.Module = train(classifier=classifier,
-                                                x=x,
-                                                y=y,
-                                                batch_size=BATCH_SIZE,
-                                                num_epochs=NUM_EPOCHS,
-                                                run_device=RUN_DEVICE,
-                                                learning_rate=LEARNING_RATE,
-                                                beta_1=BETA_1,
-                                                beta_2=BETA_2,
-                                                rand_seed=RAND_SEED,
-                                                verbose=VERBOSE)
-    save_model(classifier=trained_classifier, model_path=MODEL_PATH)
+    trained_classifier, trained_random_state = train(classifier=classifier,
+                                                     x=x,
+                                                     y=y,
+                                                     batch_size=BATCH_SIZE,
+                                                     num_epochs=NUM_EPOCHS,
+                                                     run_device=RUN_DEVICE,
+                                                     learning_rate=LEARNING_RATE,
+                                                     beta_1=BETA_1,
+                                                     beta_2=BETA_2,
+                                                     random_state=torch_random_state,
+                                                     verbose=VERBOSE)
+    save_model(classifier=trained_classifier, model_path=MODEL_PATH, random_state=trained_random_state)
 
     print(">> Save the trained classifier: {0}".format((MODEL_PATH)))

@@ -110,9 +110,9 @@ def parse_args():
     parser.add_argument("--ga-num-generations", type=int, default=1, required=False,
                         help="Iteration of generation. (GA)",
                         dest="ga_num_generations")
-    parser.add_argument("--ga-save-path", type=str, required=True,
-                        help="File path to store population. (GA)",
-                        dest="ga_save_path")
+    parser.add_argument("--ga-checkpoint-dir", type=str, default=None, required=False,
+                        help="Directory path to store checkpoints. (GA)",
+                        dest="ga_checkpoint_dir")
     parser.add_argument("--classifier-num-hidden-layers", type=int, default=1, required=False,
                         help="Number of hidden layers in classifier. (Classifier)",
                         dest="classifier_num_hidden_layers")
@@ -158,7 +158,7 @@ if __name__ == '__main__':
     GA_MUTATION_RATE: float = args.ga_mutation_rate
     GA_REPLACEMENT_METHOD: str = args.ga_replacement_method
     GA_NUM_GENERATIONS: int = args.ga_num_generations
-    GA_SAVE_PATH: str = args.ga_save_path
+    GA_CHECKPOINT_DIR: str = args.ga_checkpoint_dir
     CLASSIFIER_NUM_HIDDEN_LAYERS: int = args.classifier_num_hidden_layers
     CLASSIFIER_BATCH_SIZE: int = args.classifier_batch_size
     CLASSIFIER_NUM_EPOCHS: int = args.classifier_num_epochs
@@ -177,7 +177,8 @@ if __name__ == '__main__':
     assert isinstance(GA_MUTATION_RATE, float) and (0.0 <= GA_MUTATION_RATE <= 1.0)
     assert isinstance(GA_REPLACEMENT_METHOD, str)
     assert isinstance(GA_NUM_GENERATIONS, int) and (GA_NUM_GENERATIONS > 0)
-    assert isinstance(GA_SAVE_PATH, str) and (os.path.splitext(GA_SAVE_PATH)[1] == ".pkl")
+    if GA_CHECKPOINT_DIR is not None:
+        assert isinstance(GA_CHECKPOINT_DIR, str)
     assert isinstance(CLASSIFIER_NUM_HIDDEN_LAYERS, int) and (CLASSIFIER_NUM_HIDDEN_LAYERS > 0)
     assert isinstance(CLASSIFIER_BATCH_SIZE, int) and (CLASSIFIER_BATCH_SIZE > 0)
     assert isinstance(CLASSIFIER_NUM_EPOCHS, int) and (CLASSIFIER_NUM_EPOCHS > 0)
@@ -197,40 +198,30 @@ if __name__ == '__main__':
     size_features: int = train_x.size(1)
     size_labels: int = int(train_y.max().item() - train_y.min().item()) + 1
 
-    list_individual, logbook = ga.run(x=train_x,
-                                      y=train_y,
-                                      list_sample_by_label=list_sample_by_label,
-                                      ratio_min=RATIO_MIN,
-                                      ratio_max=RATIO_MAX,
-                                      population_size=GA_POPULATION_SIZE,
-                                      selection_method=GA_SELECTION_METHOD,
-                                      crossover_method=GA_CROSSOVER_METHOD,
-                                      crossover_size=GA_CROSSOVER_SIZE,
-                                      mutation_method=GA_MUTATION_METHOD,
-                                      mutation_rate=GA_MUTATION_RATE,
-                                      replacement_method=GA_REPLACEMENT_METHOD,
-                                      num_generations=GA_NUM_GENERATIONS,
-                                      rand_seed=RAND_SEED,
-                                      verbose=VERBOSE,
-                                      classifier_num_hidden_layers=CLASSIFIER_NUM_HIDDEN_LAYERS,
-                                      classifier_batch_size=CLASSIFIER_BATCH_SIZE,
-                                      classifier_num_epochs=CLASSIFIER_NUM_EPOCHS,
-                                      classifier_run_device=CLASSIFIER_RUN_DEVICE,
-                                      classifier_learning_rate=CLASSIFIER_LEARNING_RATE,
-                                      classifier_beta_1=CLASSIFIER_BETA_1,
-                                      classifier_beta_2=CLASSIFIER_BETA_2)
+    population, logbook = ga.run(x=train_x,
+                                 y=train_y,
+                                 list_sample_by_label=list_sample_by_label,
+                                 ratio_min=RATIO_MIN,
+                                 ratio_max=RATIO_MAX,
+                                 population_size=GA_POPULATION_SIZE,
+                                 selection_method=GA_SELECTION_METHOD,
+                                 crossover_method=GA_CROSSOVER_METHOD,
+                                 crossover_size=GA_CROSSOVER_SIZE,
+                                 mutation_method=GA_MUTATION_METHOD,
+                                 mutation_rate=GA_MUTATION_RATE,
+                                 replacement_method=GA_REPLACEMENT_METHOD,
+                                 num_generations=GA_NUM_GENERATIONS,
+                                 checkpoint_dir=GA_CHECKPOINT_DIR,
+                                 rand_seed=RAND_SEED,
+                                 verbose=VERBOSE,
+                                 classifier_num_hidden_layers=CLASSIFIER_NUM_HIDDEN_LAYERS,
+                                 classifier_batch_size=CLASSIFIER_BATCH_SIZE,
+                                 classifier_num_epochs=CLASSIFIER_NUM_EPOCHS,
+                                 classifier_run_device=CLASSIFIER_RUN_DEVICE,
+                                 classifier_learning_rate=CLASSIFIER_LEARNING_RATE,
+                                 classifier_beta_1=CLASSIFIER_BETA_1,
+                                 classifier_beta_2=CLASSIFIER_BETA_2)
 
-    ga_save_dir: str = os.path.split(GA_SAVE_PATH)[0]
-    if not os.path.exists(ga_save_dir):
-        os.makedirs(ga_save_dir)
-
-    with open(GA_SAVE_PATH, mode="wb") as fp:
-        pickle.dump(list_individual, fp)
-    with open(os.path.join(ga_save_dir, "logbook.pkl"), mode="wb") as fp:
-        pickle.dump(logbook, fp)
-
-    print("Best chromosome: ")
-    pprint(list_individual[0]["chromosome"])
-
-    print("Best fitness: ")
-    pprint(list_individual[0]["fitness"])
+    if GA_CHECKPOINT_DIR is not None:
+        with open(os.path.join(GA_CHECKPOINT_DIR, "logbook.pkl"), mode="wb") as fp:
+            pickle.dump(logbook, fp)

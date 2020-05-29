@@ -59,9 +59,6 @@ def parse_args():
     parser.add_argument("--run-device", type=str, default="cpu", required=False,
                         help="Running device for PyTorch.",
                         dest="run_device")
-    parser.add_argument("--rand-seed", type=int, default=0, required=False,
-                        help="Seed for generating random numbers.",
-                        dest="rand_seed")
     parser.add_argument("--verbose", action='store_true', required=False,
                         help="Verbose")
 
@@ -75,7 +72,6 @@ if __name__ == "__main__":
     METRIC: str = args.metric
     MODEL_PATH: str = args.model_load_path
     RUN_DEVICE: str = args.run_device
-    RAND_SEED: int = args.rand_seed
     VERBOSE: bool = args.verbose
 
     assert isinstance(METRIC, str) and (METRIC.lower() in ["f1_score", "confusion_matrix"])
@@ -89,9 +85,6 @@ if __name__ == "__main__":
     assert isinstance(RUN_DEVICE, str) and (RUN_DEVICE.lower() in ["cpu", "cuda"])
     assert isinstance(VERBOSE, bool)
 
-    np.random.seed(seed=RAND_SEED)
-    torch.manual_seed(seed=RAND_SEED)
-
     x, y = load_dataset(EVAL_DATASET_PATH)
     size_features: int = x.size(1)
     size_labels: int = int(y.max().item() - y.min().item()) + 1
@@ -100,13 +93,13 @@ if __name__ == "__main__":
     classifier: torch.nn.Module = DNNClassifier(size_features=size_features,
                                                 num_hidden_layers=2,
                                                 size_labels=size_labels)
-    trained_classifier: torch.nn.Module = load_model(classifier=classifier, model_path=MODEL_PATH)
+    trained_classifier, trained_random_state = load_model(classifier=classifier, model_path=MODEL_PATH)
     result: np.ndarray = evaluate(classifier=trained_classifier,
                                   x=x,
                                   y=y,
                                   metric=METRIC,
                                   run_device=RUN_DEVICE,
-                                  rand_seed=RAND_SEED,
+                                  random_state=trained_random_state,
                                   verbose=VERBOSE)
 
     print(">> Evaluate the trained classifier: {0}".format(MODEL_PATH))

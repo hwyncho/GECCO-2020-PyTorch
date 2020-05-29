@@ -4,8 +4,7 @@ python3 eval.py \
     --eval-data-path "./Datasets/Credit/eval.csv" \
     --metric "f1_score" \
     --model-load-path "./Trained-Classifiers/Credit/imbalanced/classifier.pth" \
-    --run-device "cpu" \
-    --rand-seed 777
+    --run-device "cpu"
 
 declare sampling_method="smote"
 declare -a list_k_neighbors=(3 5 7)
@@ -16,8 +15,7 @@ for k_neighbors in ${list_k_neighbors[@]}; do
             --eval-data-path "./Datasets/Credit/eval.csv" \
             --metric "f1_score" \
             --model-load-path "./Trained-Classifiers/Credit/${sampling_method}/k_neighbors=${k_neighbors}/ratio_by_label=${ratio_by_label}/classifier.pth" \
-            --run-device "cpu" \
-            --rand-seed 777
+            --run-device "cpu"
     done
 done
 
@@ -32,8 +30,7 @@ for k_neighbors in ${list_k_neighbors[@]}; do
                 --eval-data-path "./Datasets/Credit/eval.csv" \
                 --metric "f1_score" \
                 --model-load-path "./Trained-Classifiers/Credit/${sampling_method}/k_neighbors=${k_neighbors}/borderline_kind=${borderline_kind}/ratio_by_label=${ratio_by_label}/classifier.pth" \
-                --run-device "cpu" \
-                --rand-seed 777
+                --run-device "cpu"
         done
     done
 done
@@ -49,8 +46,7 @@ for k_neighbors in ${list_k_neighbors[@]}; do
                 --eval-data-path "./Datasets/Credit/eval.csv" \
                 --metric "f1_score" \
                 --model-load-path "./Trained-Classifiers/Credit/${sampling_method}/k_neighbors=${k_neighbors}/svm_kernel=${svm_kernel}/ratio_by_label=${ratio_by_label}/classifier.pth" \
-                --run-device "cpu" \
-                --rand-seed 777
+                --run-device "cpu"
         done
     done
 done
@@ -64,8 +60,7 @@ for n_neighbors in ${list_n_neighbors[@]}; do
             --eval-data-path "./Datasets/Credit/eval.csv" \
             --metric "f1_score" \
             --model-load-path "./Trained-Classifiers/Credit/${sampling_method}/n_neighbors=${n_neighbors}/ratio_by_label=${ratio_by_label}/classifier.pth" \
-            --run-device "cpu" \
-            --rand-seed 777
+            --run-device "cpu"
     done
 done
 
@@ -80,8 +75,7 @@ for size_latent in ${list_size_latent[@]}; do
                 --eval-data-path "./Datasets/Credit/eval.csv" \
                 --metric "f1_score" \
                 --model-load-path "./Trained-Classifiers/Credit/${sampling_method}/size_latent=${size_latent}/num_hidden_layers=${num_hidden_layers}/ratio_by_label=${ratio_by_label}/classifier.pth" \
-                --run-device "cpu" \
-                --rand-seed 777
+                --run-device "cpu"
         done
     done
 done
@@ -90,5 +84,4 @@ python3 eval.py \
     --eval-data-path "./Datasets/Credit/eval.csv" \
     --metric "f1_score" \
     --model-load-path "./Trained-Classifiers/Credit/ga/classifier.pth" \
-    --run-device "cpu" \
-    --rand-seed 777
+    --run-device "cpu"
